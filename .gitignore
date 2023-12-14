@@ -1,0 +1,4 @@
+# VENV
+venv_*
+*.ipynb
+*.yaml
