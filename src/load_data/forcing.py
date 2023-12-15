@@ -5,15 +5,21 @@ import torch
 import numpy as np
 
 class Forcing_Generator():
-    def __init__(self, lats, lons, batch) -> None:
-        self.lats = lats
-        self.lons = lons
-        self.batch = batch
-        
+    def __init__(self, mask, lats, lons, batch_size) -> None:
+        self._lats = lats
+        self._lons = lons
+        self._mask = mask
+        self.batch_size = batch_size
+    
+    def _generate_cst(self):
+        self.lats = np.repeat( np.expand_dims(self._lats, axis=0), self.batch_size, axis=0), 
+        self.lons = np.repeat( np.expand_dims(self._lons, axis=0), self.batch_size, axis=0), 
+        self.mask = np.repeat( np.expand_dims(self._mask, axis=0), self.batch_size, axis=0), 
+ 
     def generate(self, t):
-        N = np.concatenate( [self._generate_lat_lon(), self._generate_toaa(t)], axis=1)
+        N = np.concatenate( [self._get_lat_lon(), self._get_toaa(t), self._get_mask()], axis=1)
         X = torch.from_numpy(N)
-        X = torch.reshape(X, (X.size(0), X.size(1), -1) ).repeat(self.batch, 1, 1)
+        X = torch.reshape(X, (X.size(0), X.size(1), -1) ).repeat(self.batch_size, 1, 1)
         X = torch.swapaxes(X, 1, 2).to(torch.float32)
         return X
 
@@ -24,7 +30,7 @@ class Forcing_Generator():
         lat_sin = np.expand_dims(lbd_sin_lat(self.lats), axis=0)
         lon_sin = np.expand_dims(lbd_sin_lon(self.lons), axis=0)
         lon_cos = np.expand_dims(lbd_cos_lon(self.lons), axis=0)
-        return np.expand_dims(np.concatenate([lat_sin, lon_sin, lon_cos], axis=0), axis=0)
+        return np.concatenate([lat_sin, lon_sin, lon_cos], axis=0)
 
     def _generate_toaa(self, data_date):
         # Setting the date for tooa function
@@ -38,7 +44,10 @@ class Forcing_Generator():
                                       tzinfo=datetime.timezone.utc
                                       )
         altitude_deg = get_altitude(self.lats, self.lons, data_date)
-        return np.expand_dims( np.expand_dims(altitude_deg, axis=0), axis=0)
+        return np.expand_dims( np.expand_dims(altitude_deg, axis=0), axis=0) #1 var # batch_size
     
+    def _get_mask(self):
+        return self.mask
+  
     def __len__(self):
         return 4

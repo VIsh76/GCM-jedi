@@ -8,7 +8,6 @@ class NoEmbedding(nn.Module):
     def forward(self,x):
         return x
 
-
 class Surface_Embedding(nn.Module):
     def __init__(self, n_blocks, input_size, hidden_size, output_size):
         super(Surface_Embedding, self).__init__()
