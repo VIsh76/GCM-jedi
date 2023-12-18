@@ -11,15 +11,16 @@ class DataLoader():
                  surface_vars,
                  column_vars,
                  steps=1, 
-                 randomise=False):
+                 randomise=False,
+                 batch_size=2):
         self.list_of_files = os.listdir(data_path)
         self.data_path = data_path
         self.randomise = randomise
         self.surface_vars = surface_vars
         self.column_vars = column_vars
         self.steps = steps
-        self.batch = 1
-        self.ids = [i for i in range(len(self.list_of_files) - steps) ]
+        self.batch_size = batch_size
+        self.ids = np.array([i for i in range(len(self.list_of_files) - steps) ])
         self.initialize_dims()
         self.on_epoch_end()
 
@@ -30,24 +31,33 @@ class DataLoader():
     def load_file(self, file_id):
         path = os.path.join(self.data_path + self.list_of_files[file_id])
         ds = xr.load_dataset(path)
-        ds = ds.drop(['contacts', 'anchor', 'corner_lats', 'corner_lons'])
+        ds = ds.drop(['contacts', 'anchor', 'corner_lats', 'corner_lons', 'ncontact'])
         return ds
         
     def __getitem__(self, element):
-        file_x_id = self.ids[element]
-        file_y_id = file_x_id + self.steps
-        X = self.load_file(file_x_id)
-        t = str(X['time'].values[0]).split('.')[0]
+        file_x_ids = self.ids[element*self.batch_size:(element+1)*self.batch_size]
+        file_y_ids = file_x_ids + self.steps
+        # TD concat in term of array or concat in numpy?
+        # TD Load files in parallel
+        t = []
+        X = []
+        Y = []
+        for file_id in file_x_ids:
+            X.append(self.load_file(file_id))
+        for file_id in file_y_ids:
+            Y.append(self.load_file(file_id))
+        X = xr.concat(X, dim='time')
+        Y = xr.concat(Y, dim='time')
+        t = [  str(T).split('.')[0] for T in (X['time'].values)]
         X = self.format(X)
-        Y = self.load_file(file_y_id)
         Y = self.format(Y)
         return X, Y, t
 
     def format(self, X:xr.DataArray):
         surface = np.squeeze(X[self.surface_vars].to_array().to_numpy())
         column =  np.squeeze(X[self.column_vars].to_array().to_numpy())
-        surface = np.reshape(surface, (self.batch, len(self.surface_vars), -1))
-        column = np.reshape(column, (self.batch,  len(self.column_vars), self.n_levels, -1))
+        surface = np.reshape(surface, (self.batch_size, len(self.surface_vars), -1))
+        column = np.reshape(column, (self.batch_size,  len(self.column_vars), self.n_levels, -1))
         
         surface = torch.from_numpy(surface)
         column  = torch.from_numpy(column)

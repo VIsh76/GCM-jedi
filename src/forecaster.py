@@ -37,7 +37,7 @@ class Forecaster(nn.Module):
         # Norm:
         var_column = self.input_norm['column'].norm(var_column)
         var_surface = self.input_norm['surface'].norm(var_surface)
-        forced = self.input_norm['forced'].norm(forced)
+        #forced = self.input_norm['forced'].norm(forced)
         # Process:
         surface, column = self.physic(var_surface, var_column, forced)
         # UnNorm:

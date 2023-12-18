@@ -16,13 +16,19 @@ column_vars = parameters['variables']['column']
 DL = DataLoader(data_path, surface_vars, column_vars)
 lats, lons = DL.get_lat_lon()
 
-FG = Forcing_Generator(lats, lons, 1)
+FG = Forcing_Generator(lats, lons, 2)
 (surf, col), (surf_t2, col_t2), t  = DL[0]
 forced = FG.generate(t)
 
+import numpy as np
 
-input_normalizer = {'surface':Normalizer(0,1), 'column':Normalizer(0,1), 'forced':Normalizer(0,1)}
-output_normalizer = {'surface':Normalizer(0,1), 'column':Normalizer(0,1)}
+norm_path = 'data/norms'
+
+input_normalizer = {'column':Normalizer(np.load('data/norms/input_means_col.npy'), np.load('data/norms/input_std_col.npy')), 
+                    'surface' :Normalizer(np.load('data/norms/input_means_sur.npy'), np.load('data/norms/input_std_sur.npy'))}
+                    #'forced' :Normalizer(0, 1)}
+output_normalizer = {'column':Normalizer(np.load('data/norms/output_means_col.npy'), np.load('data/norms/output_std_col.npy')), 
+                    'surface'  :Normalizer(np.load('data/norms/output_means_sur.npy'), np.load('data/norms/output_std_sur.npy'))}
 
 physic_nn = Physics(surface_vars_input  = len(surface_vars) + len(FG),
                     column_vars_input   = len(column_vars),
@@ -51,6 +57,6 @@ l2 =  L(surf_t2, surf2)
 loss = l1 + l2
 loss.requires_grad=True
 loss.backward()
+print('Loss :', loss.item())
 
 print('Ok')
-

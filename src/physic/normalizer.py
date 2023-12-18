@@ -4,8 +4,8 @@ import torch
 class Normalizer(nn.Module):
     def __init__(self, mean, std):
         super(Normalizer, self).__init__()
-        self.mean = torch.tensor(mean) 
-        self.std = torch.tensor(std)
+        self.mean = torch.from_numpy(mean) 
+        self.std = torch.from_numpy(std)
         
     def norm(self, x):
         return (x - self.mean) / self.std 

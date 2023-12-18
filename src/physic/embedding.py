@@ -31,4 +31,3 @@ class Vertical_Embedding(nn.Module):
         for i in range(len(self.blocks)):
             x = self.blocks[i](x)
         return x
-    

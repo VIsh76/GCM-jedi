@@ -2,3 +2,4 @@
 venv_*
 *.ipynb
 *.yaml
+*.npy
