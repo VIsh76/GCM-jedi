@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from .dycore import Dycore
 from .physic import Physics, Normalizer
-from .utils import Forcing_Generator
 
 class Forecaster(nn.Module):
     def __init__(self, dycore:Dycore, 
@@ -41,6 +40,6 @@ class Forecaster(nn.Module):
         # Process:
         surface, column = self.physic(var_surface, var_column, forced)
         # UnNorm:
-        column = self.input_norm['column'].unnorm(var_column)
-        surface = self.input_norm['surface'].unnorm(var_surface)
+        column = self.input_norm['column'].unnorm(column)
+        surface = self.input_norm['surface'].unnorm(surface)
         return  surface, column

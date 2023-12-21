@@ -76,3 +76,36 @@ class DataLoader():
         self.n_lats     = len(ds['lats'])
         self.n_levels   = len(ds['lev'])
         self.n_faces    = len(ds['nf'])  
+
+    def dimensions(self):
+        out_col = (self.batch_size, self.n_levels, self.n_lats*self.n_lons, len(self.column_vars))
+        out_sur = (self.batch_size, self.n_lats*self.n_lons, len(self.surface_vars))
+        return (out_sur, out_col)
+
+class ColumDataLoader(DataLoader):
+    def __init__(self, 
+                 data_path, 
+                 surface_vars,
+                 column_vars,
+                 steps=1, 
+                 randomise=False,
+                 batch_size=2):
+        super(ColumDataLoader, self).__init__(data_path, surface_vars, column_vars, steps, randomise, batch_size)
+
+    def dimensions(self):
+        out_col = (self.batch_size, self.n_levels, self.n_lats, self.n_lons, len(self.column_vars))
+        out_sur = (self.batch_size, self.n_lats*self.n_lons, len(self.surface_vars))
+        return (out_sur, out_col)
+    
+    def format(self, X:xr.DataArray):
+        surface = np.squeeze(X[self.surface_vars].to_array().to_numpy())
+        column =  np.squeeze(X[self.column_vars].to_array().to_numpy())
+        surface = np.reshape(surface, (self.batch_size, len(self.surface_vars), self.n_lats, -1))
+        column = np.reshape(column, (self.batch_size,  len(self.column_vars), self.n_levels,  self.n_lats, -1))
+        
+        surface = torch.from_numpy(surface)
+        column  = torch.from_numpy(column)
+        # Place variables as the last values
+        surface = torch.swapaxes(surface, 1, -1).to(torch.float32)
+        column  = torch.swapaxes(column, 1, 3).to(torch.float32) # Might switch
+        return (surface, column)

@@ -1,5 +1,6 @@
 from torch import nn
-from.blocks import ConvBlock, MLPBlock
+from.blocks import Conv1DBlock, MLPBlock
+import torch
 
 class NoEmbedding(nn.Module):
     def __init__(self):
@@ -16,18 +17,34 @@ class Surface_Embedding(nn.Module):
         for _ in range(n_blocks-2):
             self.blocks.append(  MLPBlock(hidden_size, hidden_size, activation=True) )
         self.blocks.append(  MLPBlock(hidden_size, output_size, activation=False) )
-        
-
-class Vertical_Embedding(nn.Module):
-    def __init__(self, n_blocks, input_size, hidden_size, output_size, kernel_size):
-        super(Vertical_Embedding, self).__init__()
-        self.blocks = []
-        self.blocks.append( ConvBlock(input_size, hidden_size, kernel_size, activation=True) )
-        for _ in range(n_blocks-2):
-            self.blocks.append(  ConvBlock(hidden_size, hidden_size, kernel_size, activation=True) )
-        self.blocks.append(  ConvBlock(hidden_size, output_size, kernel_size, activation=False) )
+        for i in range(len(self.blocks)):
+            self.add_module(f"sur_embd_block_{i}", self.blocks[i])
 
     def forward(self, x):
         for i in range(len(self.blocks)):
             x = self.blocks[i](x)
+        return x
+     
+
+class Column_Embedding(nn.Module):
+    def __init__(self, n_blocks, input_size, hidden_size, output_size, kernel_size):
+        super(Column_Embedding, self).__init__()
+        self.blocks = []
+        self.blocks.append( Conv1DBlock(input_size, hidden_size, kernel_size, activation=True) )
+        for _ in range(n_blocks-2):
+            self.blocks.append(  Conv1DBlock(hidden_size, hidden_size, kernel_size, activation=True) )
+        self.blocks.append(  Conv1DBlock(hidden_size, output_size, kernel_size, activation=False) )
+        for i in range(len(self.blocks)):
+            self.add_module(f"col_embd_block_{i}", self.blocks[i])
+
+
+    def forward(self, x):
+        # Input size is (bs, horizontal, lev, nb_vars) -> Reshape
+        # Pytorch uses convolution differently where the variable dimension is not not at the end but at the start!
+        x = torch.swapaxes(x, -1, 1) # Swich (bs, profile_points, lev, vars) to  (bs, vars, lev, profile_points)
+        # Perform the kernels
+        for i in range(len(self.blocks)):
+            x = self.blocks[i](x)
+        # Put the dimension at the end
+        x = torch.swapaxes(x, -1, 1) # Swich(bs, vars, lev, profile_points) to (bs, profile_points, lev, vars) 
         return x

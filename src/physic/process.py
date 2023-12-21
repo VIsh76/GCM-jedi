@@ -11,7 +11,11 @@ class Process(nn.Module):
             self.layers.append(nn.Linear(hidden_dims, hidden_dims))
             self.act.append(nn.SiLU())
         self.layers.append(nn.Linear(hidden_dims, output_dims))   
-        # Last layer linear
+
+        for i in range(len(self.layers)):
+            self.add_module(f"process_lin_{i}", self.layers[i])
+        for j in range(len(self.act)):
+            self.add_module(f"process_act_{j}", self.act[j])
 
     def forward(self, x):
         for i in range(len(self.layers)):
