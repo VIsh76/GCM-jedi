@@ -3,15 +3,13 @@ import torch
 
 
 class Encoder(nn.Module):
-    def __init__(self, surface_vars, n_levels, column_vars, features):
+    def __init__(self, n_blocks, surface_vars, n_levels, column_vars, hidden_size, output_size):
         super(Encoder, self).__init__()
         self.n_levels = n_levels 
         self.columns_vars = column_vars 
-        self.surface_vars = surface_vars 
-        self.features = features      
-        
+        self.surface_vars = surface_vars         
         self.input_size = n_levels * column_vars + surface_vars
-        self.layer = nn.Linear(self.input_size, out_features=features)
+        self.layer = nn.Linear(self.input_size, out_features=output_size)
         
     def forward(self, surface, col):
         x = torch.concatenate( [surface, torch.flatten(col, start_dim=-2, end_dim=-1) ], axis=-1)
@@ -20,15 +18,15 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, surface_vars, n_levels, column_vars, features):
+    def __init__(self,  n_blocks, surface_vars, n_levels, column_vars, hidden_size, input_size):
         super(Decoder, self).__init__()
         self.n_levels = n_levels 
         self.columns_vars = column_vars 
         self.surface_vars = surface_vars 
-        self.features = features
+        self.input_size = input_size
         
         self.output_size = n_levels * column_vars + surface_vars
-        self.layer = nn.Linear(self.features, out_features=self.output_size)
+        self.layer = nn.Linear(self.input_size, out_features=self.output_size)
       
     def forward(self, x):
         x = self.layer(x)

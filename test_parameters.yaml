@@ -1,52 +1,60 @@
 architecture: 
-  embedding:
-    column: #input from colum var
-      layers: 5
-      kernel_size: 5
-      hidden: 64
-      output: 32
-    surface: #input from surface var
-      layers: 3
-      hidden: 16
-      output: 8
+  column_embedding: #input from column var
+    n_blocks: 5
+    kernel_size: 5
+    kernel_size_3d:
+      - 2
+      - 2
+      - 5
+    hidden_size: 64
+    output_size: 32
+    one_d: 1
+  surface_embedding: #input from surface var
+    n_blocks: 3
+    hidden_size: 16
+    output_size: 8
   encoder: # input from embedding output
-    layers: 1
-    hidden: 0 #1 layer
-    output: 384
+    n_blocks: 1
+    hidden_size: 384
+    output_size: 384
   process: # input from encoder output
-    blocks: 5
-    layers: 3
-    hidden: 384
-    output: 384
+    n_blocks: 5
+    hidden_size: 384
+    output_size: 384
   decoder: # input is from process/ output is from surface var 
-    layers: 1 #1 layer
-    hidden: 0
+    n_blocks: 1
+    hidden_size: 384
 
 variables:
-  column: 
-    - delp 
-    - qitot
-    - qltot
-    - sphu
-    - t
-    - u
-    - v
-  surface: 
-    - frlake
-    - frland
-    - frlandice
-    - frocean
-    - frseaice
-    - phis
+  n_levels: 72
+  pred:
+    column: 
+      - delp 
+      - qitot
+      - qltot
+      - sphu
+      - t
+      - u
+      - v
+    surface: 
+      - phis # is in fact not predicted but is now for test
   forced:
-    - coslat
-    - sinlat
-    - sinlon
-    - toaa
-data_path: '/Users/vmarchai/Documents/ML_DATA/c48_test_full_WITH_RAD_0/Inputs/ml_input/200004/'
+    cst:
+      - frlake
+      - frland
+      - frocean
+    generated:
+      - coslat
+      - sinlat
+      - sinlon
+    computed:
+      - toaa
+    initialized:
+      - frlandice
+      - frseaice
+
+data_path: '/Users/marchais/Documents/Data/geos_cube_sphere/'
 
 # Input variables:
 # output_columns_var = ['delp','qitot','qltot','','t','u','v']
 # output_surface_var = ['phis']
-
-

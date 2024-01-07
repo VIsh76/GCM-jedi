@@ -1,16 +1,16 @@
 from torch import nn
 
 class Process(nn.Module):
-    def __init__(self, n_layers, input_dim, hidden_dims, output_dims):
+    def __init__(self, n_blocks, input_size, hidden_size, output_size):
         super(Process, self).__init__()
         self.layers = []
         self.act = []
-        self.layers.append(nn.Linear(input_dim, hidden_dims))
+        self.layers.append(nn.Linear(input_size, hidden_size))
         self.act.append(nn.SiLU())
-        for _ in range(n_layers-2):
-            self.layers.append(nn.Linear(hidden_dims, hidden_dims))
+        for _ in range(n_blocks-2):
+            self.layers.append(nn.Linear(hidden_size, hidden_size))
             self.act.append(nn.SiLU())
-        self.layers.append(nn.Linear(hidden_dims, output_dims))   
+        self.layers.append(nn.Linear(hidden_size, output_size))   
 
         for i in range(len(self.layers)):
             self.add_module(f"process_lin_{i}", self.layers[i])

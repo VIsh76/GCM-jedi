@@ -1,6 +1,6 @@
-from src import DataLoader, Forcing_Generator
-from src.forecaster import Forecaster, Physics, Normalizer
-from src.model import Dycore
+from src import ColumnLoader as DataLoader
+from src import Physics, Normalizer, Dycore, Forcing_Generator
+from src.forecaster import Forecaster
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
@@ -44,6 +44,9 @@ output_normalizer = {'column':Normalizer(0*np.load('data/norms/output_means_col.
 
 from src.model import fill_missing_values
 parameters = fill_missing_values(parameters)
+# Switch to 2D embeddings:
+parameters['architecture']['column_embedding']['one_d'] = 3
+parameters['architecture']['column_embedding']['kernel_size'] = parameters['architecture']['column_embedding']['kernel_size_3d'] 
 physic_nn = Physics(parameters=parameters)
 
 dcore = Dycore()
@@ -65,6 +68,8 @@ print("Number of parameters of the embedding col : \t", number_of_parameters(for
 (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL[0]
 forced = FG.generate(t, forced_t1)
 
+
+
 avg_pred = []
 losses_items_avg = []
 for d in tqdm.tqdm(range(1)):
@@ -72,8 +77,8 @@ for d in tqdm.tqdm(range(1)):
     optimizer.zero_grad()
     ### Forward
     col_pred, surf_pred = forecaster.forward(col_t1, surf_t1, forced)
-    l1 =  L_avg(col_pred , col_t2)
-    l2 =  L_avg(surf_pred, surf_t2)
+    l1 =  L_avg(col_pred , col_t1)
+    l2 =  L_avg(surf_pred, surf_t1)
     loss = l1 + l2
     loss.backward()
     torch.nn.utils.clip_grad_norm_(forecaster.parameters(),1000)
@@ -93,39 +98,42 @@ plt.plot(losses_items_avg)
 with torch.no_grad():
     forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
     pert = col_t1[[0]] * 0
-    pert[0, 100, :, 0] = 1
+    pert[0, 10, 10, :, :] = 1
     _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     _, (d_col_in, d_surf_in) = torch.autograd.functional.vjp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
 
 
 # %% Test on cube deconstruction
 
-from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere
+from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere, latlon_to_cube_sphere
 
-Y = flat_to_cube_sphere(pert.numpy())
-V = deconstruct_cube(Y[0,0,:,:,:,0])
+
+Y = latlon_to_cube_sphere(pert[:,:,:,0].numpy())
+V = deconstruct_cube(Y[0,:,:,:,0])
 plt.imshow(V)
 plt.show()
-
-Y = flat_to_cube_sphere(d_surf_ou.numpy())
+###############################
+Y = latlon_to_cube_sphere(d_surf_ou.numpy())
+V = deconstruct_cube(Y[0,:,:,:,0])
+plt.imshow(V)
+plt.show()
+###############################
+Y = latlon_to_cube_sphere(d_surf_in.numpy())
 V = deconstruct_cube(Y[0,:,:,:,0])
 plt.imshow(V)
 plt.show()
 
-Y = flat_to_cube_sphere(d_surf_in.numpy())
-V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V)
-plt.show()
-
-Y = flat_to_cube_sphere(forced.numpy())
+Y = latlon_to_cube_sphere(forced.numpy())
 V = deconstruct_cube(Y[0,:,:,:,-1])
 plt.imshow(V)
 plt.show()
 
-Y = flat_to_cube_sphere(forced.numpy())
-V = deconstruct_cube(Y[0,:,:,:,4])
+Y = latlon_to_cube_sphere(surf_pred.detach().numpy())
+V = deconstruct_cube(Y[0,:,:,:,-1])
 plt.imshow(V)
 plt.show()
+
+
 
 # %% End
 print('Hello World')
