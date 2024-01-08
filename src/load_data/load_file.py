@@ -134,7 +134,7 @@ class ColumnLoader(DataLoader):
         column =  X[self.column_vars].to_array().to_numpy() # (var, time, lev, nf, lat, lon)
         assert(column.shape == (len(column), self.batch_size, self.n_levels, self.n_faces, self.n_lats, self.n_lons))
         # Reshape:
-        column = np.moveaxis(column, 3, -1) # nf to last
+        column = np.moveaxis(column, 3, -2) # nf to penultiem
         column = np.reshape(column, (len(self.column_vars), self.batch_size, self.n_levels, self.n_lats, self.n_faces * self.n_lons))
         # Reorder axis:
         column = np.moveaxis(column, 2, -1) # lev to last 
@@ -144,7 +144,7 @@ class ColumnLoader(DataLoader):
     def format_surface(self, X):
         surface = X[self.surface_vars].to_array().to_numpy() # (var, time, nf, lat, lon)
         assert(surface.shape == (len(surface), self.batch_size, self.n_faces, self.n_lats, self.n_lons))
-        surface = np.moveaxis(surface, 2, -1) # nf to last
+        surface = np.moveaxis(surface, 2, -2) # nf to penultiem
         surface = np.reshape(surface, (len(self.surface_vars),  self.batch_size, self.n_lats, self.n_faces * self.n_lons) ) # (var, time, horizontal)
         # Reorder axis:
         surface = np.moveaxis(surface, 0, -1) # variables to last
@@ -153,7 +153,7 @@ class ColumnLoader(DataLoader):
     def format_forced(self, X):
         forced =  X[self.forced_vars].to_array().to_numpy()
         assert(forced.shape == (len(forced), self.batch_size, self.n_faces, self.n_lats, self.n_lons))
-        forced = np.moveaxis(forced, 2, -1) # nf to last
+        forced = np.moveaxis(forced, 2, -2) # nf to penultiem
         forced = np.reshape(forced, (len(self.forced_vars),  self.batch_size, self.n_lats, self.n_faces * self.n_lons) ) # (var, time, horizontal)
         forced = np.moveaxis(forced, 0, -1) # variables to last
         return forced
@@ -165,8 +165,8 @@ class ColumnLoader(DataLoader):
             Just like the formatting
         """
         ds = self.load_file(0)
-        lats = np.moveaxis(ds['lats'].values, 0, -1)
-        lons = np.moveaxis(ds['lons'].values, 0, -1)
+        lats = np.moveaxis(ds['lats'].values, 0, -2)
+        lons = np.moveaxis(ds['lons'].values, 0, -2)
         lats = np.reshape(lats, (self.n_lats, self.n_faces*self.n_lons))
         lons = np.reshape(lons, (self.n_lats, self.n_faces*self.n_lons))
         return lats, lons

@@ -29,8 +29,8 @@ def latlon_to_cube_sphere(X, nf=6):
     nf = lon_nf // lat
     lon = lat
     Y = np.moveaxis(X, -1, 1)
-    Y = np.reshape(Y, (bs, nb_var, lat, lon, nf))
-    Y = np.moveaxis(Y, -1, 1) # nf at the start
+    Y = np.reshape(Y, (bs, nb_var, lat, nf, lon))
+    Y = np.moveaxis(Y, -2, 1) # nf at the start
     Y = np.moveaxis(Y, 2, -1) # var at the end
     return Y
 

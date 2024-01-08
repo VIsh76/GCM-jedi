@@ -43,3 +43,8 @@ class ConvBlock(nn.Module):
             return self.act(x)
         else:
             return x
+
+
+class AttentionHead(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)

@@ -33,6 +33,14 @@ DL = DataLoader(data_path, batch_size, pred_surface_vars, pred_column_vars, forc
 (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL[0]
 forced = FG.generate(t, forced_t1)
 
+from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere, latlon_to_cube_sphere
+
+Y = latlon_to_cube_sphere(forced.numpy())
+V = deconstruct_cube(Y[0,:,:,:,-1])
+plt.imshow(V)
+plt.show()
+
+
 
 # %% Architecture :
 norm_path = 'data/norms'
@@ -110,29 +118,46 @@ from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere, latlon_t
 
 Y = latlon_to_cube_sphere(pert[:,:,:,0].numpy())
 V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V)
+plt.imshow(V);
+plt.savefig('graph/perturbation.jpg')
 plt.show()
+
+
 ###############################
 Y = latlon_to_cube_sphere(d_surf_ou.numpy())
 V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V)
+plt.imshow(V);
+plt.colorbar();
+plt.savefig('graph/tlm_col_output.jpg')
 plt.show()
+
 ###############################
-Y = latlon_to_cube_sphere(d_surf_in.numpy())
+Y = latlon_to_cube_sphere(d_col_in[:,:,:,0].numpy())
 V = deconstruct_cube(Y[0,:,:,:,0])
 plt.imshow(V)
+plt.colorbar();
+plt.savefig('graph/adj_col_output.jpg')
 plt.show()
 
 Y = latlon_to_cube_sphere(forced.numpy())
 V = deconstruct_cube(Y[0,:,:,:,-1])
 plt.imshow(V)
+plt.savefig('graph/toaa.jpg')
 plt.show()
 
 Y = latlon_to_cube_sphere(surf_pred.detach().numpy())
 V = deconstruct_cube(Y[0,:,:,:,-1])
 plt.imshow(V)
+plt.savefig('graph/surf_prediction.jpg')
 plt.show()
 
+# Quick ADJ test:
+with torch.no_grad():
+    forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
+    pert =  torch.randn_like(col_t1[[0]])
+    _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
+    _, (d_col_in, d_surf_in) = torch.autograd.functional.vjp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
+    print('ADJ test :', torch.sum(d_col_ou * pert) -    torch.sum(d_col_in * pert))
 
 
 # %% End
