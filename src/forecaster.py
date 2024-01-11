@@ -1,8 +1,7 @@
 import torch
 from torch import nn
-from .dycore import Dycore
-from .physic import Physics, Normalizer
-from .utils import Forcing_Generator
+from .model import Dycore
+from .model import Physics, Normalizer
 
 class Forecaster(nn.Module):
     def __init__(self, dycore:Dycore, 
@@ -25,10 +24,11 @@ class Forecaster(nn.Module):
         return x_dyn + dx_phys * self.dt
 
     def forward(self, var_column, var_surface, var_forced):
-        d_phy_sur, d_phy_col = self.propagate_phy(var_column, var_surface, var_forced)
+        d_phy_col, d_phy_sur = self.propagate_phy(var_column, var_surface, var_forced)
         d_dyn = self.propagate_dyn(var_column)
-        o = self.ode(d_phy_col, d_dyn)
-        return o, d_phy_sur
+        col_ode = self.ode(d_phy_col, d_dyn)
+        sur_ode = self.ode(d_phy_sur, var_surface)
+        return col_ode, sur_ode
 
     def propagate_dyn(self, var_column):
         return self.dycore(var_column)
@@ -41,6 +41,6 @@ class Forecaster(nn.Module):
         # Process:
         surface, column = self.physic(var_surface, var_column, forced)
         # UnNorm:
-        column = self.input_norm['column'].unnorm(var_column)
-        surface = self.input_norm['surface'].unnorm(var_surface)
-        return  surface, column
+        column = self.output_norm['column'].unnorm(column)
+        surface = self.output_norm['surface'].unnorm(surface)
+        return  column, surface
