@@ -1,7 +1,7 @@
 import torch
 from .load_file import DataLoader
 
-def compute_renorm_input(dataloader:DataLoader,length, column_var:dict, surface_var:dict):
+def compute_renorm_input(dataloader:DataLoader,length:int, column_var:dict, surface_var:dict):
     # Inputs
     input_std_col   = torch.zeros( (1, 1, dataloader.n_levels, len(dataloader.column_vars)))
     input_mean_col = torch.zeros( (1, 1, dataloader.n_levels, len(dataloader.column_vars)))
@@ -16,16 +16,17 @@ def compute_renorm_input(dataloader:DataLoader,length, column_var:dict, surface_
 
     # Means
     print('Compute mean')
+    length = min(length, len(dataloader))
+    
     for l in range(length):
-        (surface_x, column_x, _),  (surface_y, column_y, _), t = dataloader[l]
-        input_mean_col +=  torch.sum(column_x, axis=(0, 1, 2), keepdims=True)
-        input_mean_sur +=  torch.sum(surface_x, axis=(0, 1), keepdims=True)
-        output_mean_col += torch.sum(column_y - column_x, axis=(0, 1, 2), keepdims=True)
-        output_mean_sur += torch.sum(surface_y - surface_x, axis=(0, 1), keepdims=True)
+        (column_x, surface_x, _),  (column_y, surface_y, _), t = dataloader[l]
+        input_mean_col +=  torch.sum(column_x, axis=(0, 1, 2, 3), keepdims=True)[0] # var norm is NOT per level (maybe it should)
+        input_mean_sur +=  torch.sum(surface_x, axis=(0, 1, 2), keepdims=True)[0]
+        output_mean_col += torch.sum(column_y - column_x, axis=(0, 1, 2, 3), keepdims=True)[0]
+        output_mean_sur += torch.sum(surface_y - surface_x, axis=(0, 1, 2), keepdims=True)[0]
         print('surf: \t', torch.max(output_mean_sur), torch.min(output_mean_sur))
         print('col: \t',torch.max(output_mean_col), torch.min(output_mean_col))
-    
-    n_terms = length * dataloader.batch_size * dataloader.n_lats * dataloader.n_lons * dataloader.n_faces
+    n_terms = length * dataloader.n_lats * dataloader.n_lons
     input_mean_col  /= (n_terms * dataloader.n_levels) 
     input_mean_sur  /= n_terms
     output_mean_col /= (n_terms * dataloader.n_levels)   # will be 0 (should and will be close) 
@@ -34,11 +35,11 @@ def compute_renorm_input(dataloader:DataLoader,length, column_var:dict, surface_
     # Stds
     print('Compute std')
     for l in range(length):
-        (surface_x, column_x, _),  (surface_y, column_y, _), t = dataloader[l]
-        input_std_col += torch.sum(   (input_mean_col - column_x)**2, axis=(0, 1, 2), keepdims=True)
-        input_std_sur += torch.sum(   (input_mean_sur - surface_x)**2, axis=(0, 1), keepdims=True)
-        output_std_col += torch.sum( (output_mean_col - (column_y - column_x))**2, axis=(0, 1, 2), keepdims=True)
-        output_std_sur += torch.sum( (output_mean_sur - (surface_y - surface_x))**2, axis=(0, 1), keepdims=True)
+        (column_x, surface_x, _),  (column_y, surface_y, _), t = dataloader[l]
+        input_std_col += torch.sum(   (input_mean_col - column_x)**2, axis=(0, 1, 2, 3), keepdims=True)[0]
+        input_std_sur += torch.sum(   (input_mean_sur - surface_x)**2, axis=(0, 1, 2), keepdims=True)[0]
+        output_std_col += torch.sum( (output_mean_col - (column_y - column_x))**2, axis=(0, 1, 2, 3), keepdims=True)[0]
+        output_std_sur += torch.sum( (output_mean_sur - (surface_y - surface_x))**2, axis=(0, 1, 2), keepdims=True)[0]
     
     input_std_col  = torch.sqrt( input_std_col / (n_terms * dataloader.n_levels) )
     input_std_sur  = torch.sqrt( input_std_sur / n_terms )

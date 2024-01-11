@@ -49,7 +49,7 @@ class Forcing_Generator():
             self.cst_mask = np.repeat( self._cst_mask, self.batch_size, axis=0)
  
     def generate(self, ts, forced_mask=None):
-        nl = [self.lat_lon, self.get_toaa(ts)]
+        nl = [self.get_toaa(ts) , self.lat_lon]
         N = np.concatenate(nl, axis=-1)
         X = torch.from_numpy(N)
         nt = [X]

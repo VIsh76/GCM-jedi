@@ -1,4 +1,4 @@
-from src import ColumnLoader as DataLoader
+from src import DataLoader
 from src import Physics, Normalizer, Dycore, Forcing_Generator
 from src.forecaster import Forecaster
 import numpy as np
@@ -15,7 +15,7 @@ warnings.warn
 with open('test_parameters.yaml', 'r') as file:
     parameters = yaml.safe_load(file)
 
-batch_size = 2
+batch_size = 1
 data_path = parameters['data_path']
 pred_surface_vars = parameters['variables']['pred']['surface']
 pred_column_vars = parameters['variables']['pred']['column']
@@ -24,23 +24,17 @@ cst_surface_vars = parameters['variables']['forced']['cst']
 forced_surface_vars = parameters['variables']['forced']['initialized']
 
 #%% Initilized dataloaders:
-DL0 = DataLoader(data_path, 1, [], [], cst_surface_vars)
+DL0 = DataLoader(data_path=data_path, batch_size=batch_size, column_vars=[], surface_vars=[], forced_vars=cst_surface_vars, steps=1, randomise=False)
 (_, _, forced), _, _ = DL0[0]
 lats, lons = DL0.get_lat_lon()
-FG = Forcing_Generator(2, lats, lons, forced)
+FG = Forcing_Generator(batch_size, lats, lons, forced)
 del(DL0)
-DL = DataLoader(data_path, batch_size, pred_surface_vars, pred_column_vars, forced_surface_vars)
+DL = DataLoader(data_path=data_path, batch_size=batch_size, column_vars=pred_column_vars, surface_vars=pred_surface_vars, forced_vars=forced_surface_vars, steps=1, randomise=False)
 (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL[0]
 forced = FG.generate(t, forced_t1)
 
-from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere, latlon_to_cube_sphere
-
-Y = latlon_to_cube_sphere(forced.numpy())
-V = deconstruct_cube(Y[0,:,:,:,-1])
-plt.imshow(V)
+plt.imshow(forced[0,:,:,-1].numpy())
 plt.show()
-
-
 
 # %% Architecture :
 norm_path = 'data/norms'
@@ -80,7 +74,7 @@ forced = FG.generate(t, forced_t1)
 
 avg_pred = []
 losses_items_avg = []
-for d in tqdm.tqdm(range(1)):
+for d in tqdm.tqdm(range(2)):
     ### Reset optim
     optimizer.zero_grad()
     ### Forward
@@ -113,44 +107,33 @@ with torch.no_grad():
 
 
 # %% Test on cube deconstruction
-
-from src.analysis.rebuild import deconstruct_cube, flat_to_cube_sphere, latlon_to_cube_sphere
-
-
-Y = latlon_to_cube_sphere(pert[:,:,:,0].numpy())
-V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V);
+import os
+os.makedirs('graph', exist_ok=True)
+plt.imshow(pert[0,:,:,0,0].numpy()); plt.title('Perturbation')
 plt.savefig('graph/perturbation.jpg')
-plt.show()
-
+plt.show();plt.close('all')
 
 ###############################
-Y = latlon_to_cube_sphere(d_surf_ou.numpy())
-V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V);
-plt.colorbar();
+plt.imshow(d_surf_ou[0,:,:,0].numpy());
+plt.colorbar(); plt.title(f"Output_pert, {DL.surface_vars[0]}")
 plt.savefig('graph/tlm_col_output.jpg')
-plt.show()
+plt.show();plt.close('all')
 
 ###############################
-Y = latlon_to_cube_sphere(d_col_in[:,:,:,0].numpy())
-V = deconstruct_cube(Y[0,:,:,:,0])
-plt.imshow(V)
-plt.colorbar();
+plt.imshow(d_surf_in[0,:,:,0].numpy());
+plt.colorbar(); plt.title(f"Input_pert, {DL.surface_vars[0]}")
 plt.savefig('graph/adj_col_output.jpg')
-plt.show()
+plt.show();plt.close('all')
 
-Y = latlon_to_cube_sphere(forced.numpy())
-V = deconstruct_cube(Y[0,:,:,:,-1])
-plt.imshow(V)
+plt.imshow(forced[0,:,:,0].numpy());
+plt.colorbar(); plt.title(f"Sunlight")
 plt.savefig('graph/toaa.jpg')
-plt.show()
+plt.show();plt.close('all')
 
-Y = latlon_to_cube_sphere(surf_pred.detach().numpy())
-V = deconstruct_cube(Y[0,:,:,:,-1])
-plt.imshow(V)
+plt.imshow(surf_pred[0,:,:,-1].detach().numpy())
+plt.colorbar(); plt.title(f"Input predicted {DL.surface_vars[0]}")
 plt.savefig('graph/surf_prediction.jpg')
-plt.show()
+plt.show();plt.close('all')
 
 # Quick ADJ test:
 with torch.no_grad():

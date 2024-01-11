@@ -53,7 +53,9 @@ variables:
       - frlandice
       - frseaice
 
-data_path: '/Users/marchais/Documents/Data/geos_cube_sphere/'
+#data_path: '/Users/marchais/Documents/Data/geos_cube_sphere/'
+data_path: '/Users/vmarchai/Documents/ML_DATA/GCM_latlon/200004/'
+
 
 # Input variables:
 # output_columns_var = ['delp','qitot','qltot','','t','u','v']

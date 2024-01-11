@@ -8,15 +8,20 @@ class Forecaster(nn.Module):
                        nn_physic:Physics, 
                        input_norm,
                        output_norm,
-                       dt:float 
+                       dt:float,
+                       n_step_phys=1,
+                       n_steps_dyn=1,
                        ):
         super(Forecaster, self).__init__()
         # Dynamical part:
-        self.physic =nn_physic
+        self.physic = nn_physic
         # Physical Part:
         self.dycore = dycore
         self.input_norm  = input_norm
         self.output_norm = output_norm
+        self.n_step_phys = n_step_phys
+        self.n_steps_dyn = n_steps_dyn
+        assert(n_step_phys * n_steps_dyn > 0)
         self.dt = dt
         # Dimensions
 
@@ -24,8 +29,8 @@ class Forecaster(nn.Module):
         return x_dyn + dx_phys * self.dt
 
     def forward(self, var_column, var_surface, var_forced):
-        d_phy_col, d_phy_sur = self.propagate_phy(var_column, var_surface, var_forced)
         d_dyn = self.propagate_dyn(var_column)
+        d_phy_col, d_phy_sur = self.propagate_phy(var_column, var_surface, var_forced)
         col_ode = self.ode(d_phy_col, d_dyn)
         sur_ode = self.ode(d_phy_sur, var_surface)
         return col_ode, sur_ode

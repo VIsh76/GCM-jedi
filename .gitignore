@@ -6,3 +6,6 @@ venv_*
 
 
 *.jpg
+*.nc4
+
+*__pycache__/*

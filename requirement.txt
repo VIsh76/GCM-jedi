@@ -1,6 +1,8 @@
 pyyaml
+pysolar
 xarray
 netCDF4
 numpy
 matplotlib
 torch
+tqdm
