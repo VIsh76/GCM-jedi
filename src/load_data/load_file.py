@@ -15,7 +15,9 @@ class DataLoader():
                  steps=1, 
                  randomise=False
                  ):
+
         self.list_of_files = os.listdir(data_path)
+        self.list_of_files = [l for l in self.list_of_files if l.split('.')[-1]=='nc4' ]
         self.data_path = data_path
         self.randomise = randomise
         self.surface_vars = surface_vars
