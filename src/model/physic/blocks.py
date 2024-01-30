@@ -26,11 +26,11 @@ class ConvBlock(nn.Module):
     The expected input size is (bs, var, lat, lon, lev), so we apply a 3D convolution with 
     the chosen kernel sizes. The expected kernel size is for lev, lat, lon respectively
     """
-    def __init__(self, in_channels, out_channels, kernel_size:int, activation:bool, one_d:bool) -> None:
+    def __init__(self, in_channels, out_channels, kernel_size:int, activation:bool, kernel_dim:bool) -> None:
         super().__init__()
-        if one_d==1:
+        if kernel_dim==1:
             self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=(1, kernel_size), padding='same')
-        elif one_d==3:
+        elif kernel_dim==3:
             self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, padding='same')
         else:
             assert(False)

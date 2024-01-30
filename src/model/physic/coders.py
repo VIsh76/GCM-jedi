@@ -11,7 +11,7 @@ class Encoder(nn.Module):
         self.input_size = n_levels * column_vars + surface_vars
         self.layer = nn.Linear(self.input_size, out_features=output_size)
         
-    def forward(self, surface, col):
+    def forward(self, col, surface):
         x = torch.concatenate( [surface, torch.flatten(col, start_dim=-2, end_dim=-1) ], axis=-1)
         x = self.layer(x)
         return x
@@ -34,6 +34,4 @@ class Decoder(nn.Module):
         surf = splits[0]
         col = torch.concatenate( splits[1:], dim=-1)
         col = torch.reshape(col, [*col.size()[:-1],  self.n_levels, self.columns_vars])
-        return surf, col
-
-    
+        return col, surf

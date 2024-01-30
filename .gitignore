@@ -8,4 +8,13 @@ venv_*
 *.jpg
 *.nc4
 
-*__pycache__/*
+data/*
+graph/*
+__pycache__*
+experiments/*
+*.log
+
+# Images:
+*.png
+*.jpg
+*.gif

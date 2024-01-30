@@ -4,7 +4,7 @@ from .model import Dycore
 from .model import Physics, Normalizer
 
 class Forecaster(nn.Module):
-    def __init__(self, dycore:Dycore, 
+    def __init__(self, dycore:Dycore,
                        nn_physic:Physics, 
                        input_norm,
                        output_norm,
@@ -44,7 +44,7 @@ class Forecaster(nn.Module):
         var_surface = self.input_norm['surface'].norm(var_surface)
         #forced = self.input_norm['forced'].norm(forced)
         # Process:
-        surface, column = self.physic(var_surface, var_column, forced)
+        column, surface = self.physic(var_column, var_surface, forced)
         # UnNorm:
         column = self.output_norm['column'].unnorm(column)
         surface = self.output_norm['surface'].unnorm(surface)

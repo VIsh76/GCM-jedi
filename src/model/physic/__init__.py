@@ -10,8 +10,8 @@ import torch
 
 class Physics(nn.Module):
     def __init__(self, 
-                 sur_embedding:Surface_Embedding=None,
                  col_embedding:Column_Embedding=None,
+                 sur_embedding:Surface_Embedding=None,
                  encoder:Encoder=None,
                  decoder:Decoder=None,
                  processor:Process=None,
@@ -19,8 +19,8 @@ class Physics(nn.Module):
                  ) -> None:
         super().__init__()
         if len(parameters) > 0:
-                self.sur_embedding = Surface_Embedding(**parameters['architecture']['surface_embedding'])
                 self.col_embedding = Column_Embedding(**parameters['architecture']['column_embedding'])
+                self.sur_embedding = Surface_Embedding(**parameters['architecture']['surface_embedding'])
                 self.encoder = Encoder(**parameters['architecture']['encoder'])
                 self.processor = Process(**parameters['architecture']['process'])
                 self.decoder = Decoder(**parameters['architecture']['decoder'])
@@ -34,13 +34,44 @@ class Physics(nn.Module):
             self.decoder = decoder
 
 
-    def forward(self, surface, col_var, forced):
+    def forward(self, col_var, surface, forced):
         all_surface = torch.concat([surface, forced], dim=-1)
         sur_embd = self.sur_embedding.forward(all_surface)
         col_embd = self.col_embedding.forward(col_var)
 
-        x = self.encoder.forward(sur_embd, col_embd)
+        x = self.encoder.forward(col_embd, sur_embd)
         x = self.processor.forward(x)
-        surface, col = self.decoder.forward(x)
-        return surface, col
+        col, surface = self.decoder.forward(x)
+        return col, surface
+
+
+class Encode_Decode(nn.Module):
+    def __init__(self, 
+                 parameters,
+                 *args, **kwargs,
+                 ) -> None:
+        super().__init__()
+        self.encoder = Encoder(**parameters['architecture']['encoder'])
+        #self.processor = Process(**parameters['architecture']['process'])
+        self.decoder = Decoder(**parameters['architecture']['decoder'])
+
+
+    def forward(self, col_var, surface, forced):
+        all_surface = torch.concat([surface, forced], dim=-1)
+        x = self.encoder.forward(col_var, all_surface)
+        col, surface = self.decoder.forward(x)
+        return col, surface
+
+class LIN(nn.Module):
+    def __init__(self, 
+                 parameters,
+                 *args, **kwargs,
+                 ) -> None:
+        super().__init__()
+        self.layer = nn.Linear(in_features=7, out_features=7)
+
+    def forward(self, col, surface, forced):
+        col = self.layer(col)
+        return col, surface*0
+
 

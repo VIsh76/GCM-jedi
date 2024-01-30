@@ -5,9 +5,17 @@ import torch
 import numpy as np
 
 class Forcing_Generator():
-    def __init__(self,  batch_size:int, lats:np.array, lons:np.array, cst_mask:np.array=None, forced_masks:np.array=None) -> None:
+    def __init__(self,  
+                 batch_size:int, 
+                 lats:np.array, 
+                 lons:np.array, 
+                 cst_mask:np.array=None, 
+                 forced_masks:np.array=None,
+                 device='cpu',
+                 ) -> None:
         self._lats = lats
         self._lons = lons
+        self.device=device
         self._cst_mask = cst_mask # Earth mask
         self.forced_masks = forced_masks # Sea Temperature, seaice etc
         self.batch_size = batch_size
@@ -46,12 +54,13 @@ class Forcing_Generator():
         if self._cst_mask is None:
             self.cst_mask = None
         else:
-            self.cst_mask = np.repeat( self._cst_mask, self.batch_size, axis=0)
+            # self._cst_mask is a 
+            self.cst_mask = self._cst_mask.to(self.device)
  
     def generate(self, ts, forced_mask=None):
-        nl = [self.get_toaa(ts) , self.lat_lon]
+        nl = [self.lat_lon, self.get_toaa(ts)]
         N = np.concatenate(nl, axis=-1)
-        X = torch.from_numpy(N)
+        X = torch.from_numpy(N).to(self.device)
         nt = [X]
         if not(self.cst_mask is None):
             nt.insert(0, self.cst_mask)
@@ -83,7 +92,8 @@ class Forcing_Generator():
                                       second=data_date.second,
                                       tzinfo=datetime.timezone.utc
                                       ) for data_date in data_dates]
-        altitude_deg =  np.stack(    [get_altitude(self.lats[0], self.lons[0], d) for d in data_dates], axis=0)
+        # lats, lons need to be in degrees not radiants
+        altitude_deg =  np.stack(    [get_altitude(self.lats[0]*180/np.pi, self.lons[0]*180/np.pi, d) for d in data_dates], axis=0)
         return  np.expand_dims(altitude_deg, axis=-1)
   
     def __len__(self):
