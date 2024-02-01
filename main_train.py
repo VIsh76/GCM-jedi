@@ -141,9 +141,10 @@ loss_test = [] # Loss on tests
 loss_cst = [] # Prediction = 0
 lr_evo = [] # Check learning rate
 
-if True:
-    n_epochs=2
-    step_per_epoch=2
+if True:#Test
+    n_epochs=5
+    step_per_epoch=1
+    DL_train.randomise=False # not shuffle at epoche end
 if True:
     n_epochs=50
     step_per_epoch=len(DL_train)
@@ -162,6 +163,7 @@ for epoch in range(n_epochs):
         l_col, l_sur = Loss(col_pred, col_t2, surf_pred, surf_t2)
         loss = l_col + l_sur
         loss.backward()
+        print(t, '\t', loss)
         torch.nn.utils.clip_grad_norm_(forecaster.parameters(), max_norm=32)
         optimizer.step()
         scheduler.step()
@@ -202,6 +204,7 @@ for epoch in range(n_epochs):
         else:# Save the new model
             torch.save(forecaster.state_dict(), f"{checkpoint_path}epoch_{epoch}")
 
+optimizer.zero_grad()
 plt.plot(loss_items)
 plt.savefig(f'{graph_path}losses_all.jpg')
 plt.show(); plt.close('all')
