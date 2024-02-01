@@ -4,11 +4,14 @@ architecture:
   model: Physics # One class from the physic class
   column_embedding: #input from column var
     n_blocks: 5
-    kernel_size_1d: 5 # used if kernel_dim==1
-    kernel_size_3d: # used if kernel_dim==3
-      - 2
-      - 2
+    kernel_size:
+      - 3
+      - 3
       - 5
+    padding_type:
+      - zero
+      - zero
+      - zero
     hidden_size: 128
     output_size: 64
     kernel_dim: 3 # Uses 3d kernel (surface+col) or 1d kernel (column)
@@ -66,7 +69,7 @@ path:
   experiments: '/home/ubuntu/GCM-jedi/experiments/DEBUG/'
   graph: '/home/ubuntu/GCM-jedi/data/graph/'
 # WARNING PATH MUST FINISH with '/'
-
+time_format: '%Y-%m-%dT%H:%M:%S'
 batch_size: 1
 training:
   epochs: 10

@@ -31,7 +31,8 @@ for i, p in enumerate(os.listdir(data_path)):
 
 #%% Compute coef:
 DL = DataLoader(data_path, 1, surface_vars, column_vars, [], steps=1)
-(col, sur, _), (col2, sur2, _), t = DL[0] # (time, lat, lon, lev, var)
+L, t = DL[0, 1] # (time, lat, lon, lev, var)
+(col, sur, _), (col2, sur2, _) = L
 num_dim = len(sur.shape)
 
 # Lat is in degree:
@@ -48,7 +49,7 @@ print('animating tests')
 from src.analysis.animation import update_col, update_force, update_delta_col, generate_animation
 import torch
 
-num_steps = 80
+num_steps = 10
 vars = []#Set to 0 to avoid animations
 vars = ['t','u','v']
 for var in vars:
@@ -57,14 +58,14 @@ for var in vars:
     ani0 = generate_animation(update_col,
                           kwarg_fct={'id_var':id_var, 'lev':lev, 'DL':DL},
                           kwarg_ani={'frames':np.arange(num_steps)})
-    ani0.save(f'{output_graph}{var}_{lev}.gif')
+    ani0.save(f'{output_graph}TEST{var}_{lev}.gif')
     vmax = abs(col - col2)[0,:,:,lev, id_var].max()
     ani0 = generate_animation(update_delta_col,
                           kwarg_fct={'id_var':id_var, 'lev':lev, 'DL':DL,'vmax':vmax},
                           kwarg_ani={'frames':np.arange(num_steps)},
                           lat=90,
                           lon=180)
-    ani0.save(f'{output_graph}delta_{var}_{lev}.gif')
+    ani0.save(f'{output_graph}TESTdelta_{var}_{lev}.gif')
 
 # %% Graph
 import matplotlib.pyplot as plt

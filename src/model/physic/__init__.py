@@ -5,8 +5,6 @@ from .normalizer import Normalizer
 from torch import nn
 import torch
 
-# embd_surface_dim = 8
-# embd_column_dim = 32
 
 class Physics(nn.Module):
     def __init__(self, 
@@ -32,7 +30,6 @@ class Physics(nn.Module):
             self.processor = processor
             self.encoder = encoder
             self.decoder = decoder
-
 
     def forward(self, col_var, surface, forced):
         all_surface = torch.concat([surface, forced], dim=-1)

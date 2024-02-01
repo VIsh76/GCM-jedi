@@ -58,10 +58,10 @@ DL0 = DataLoader(data_path=data_path_train,
                  device='cpu',
                  randomise=False)
 
-(_, _, forced), _, _ = DL0[0]
+(_, _, _forced), _, _ = DL0[0]
 lats, lons = DL0.get_lat_lon()
-FG = Forcing_Generator(batch_size=batch_size, lats=lats, lons=lons, cst_mask=forced, device=device)
-del(DL0, forced)
+FG = Forcing_Generator(batch_size=batch_size, lats=lats, lons=lons, cst_mask=_forced, device=device)
+del(DL0, _forced)
 
 DL_train = DataLoader(data_path=data_path_train, 
                 batch_size=batch_size, 
@@ -151,8 +151,8 @@ forecaster.load_state_dict(torch.load(state_dict_file))
 
 # %%
 with torch.no_grad():
-    (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, forced_t2), t1  = DL_train[0]
-    forced_t1 = FG.generate(t1, forced_t1)
+    (col_t1, surf_t1, _forced), (col_t2, surf_t2, forced_t2), t1  = DL_train[0]
+    forced_t1 = FG.generate(t1, _forced)
     forecaster_for_grad = lambda x, y: forecaster(x, y, forced_t1[[0]])
     pert = col_t1[[0]] * 0
     pert[0, 10, 10, :, :] = 1

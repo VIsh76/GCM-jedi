@@ -43,6 +43,9 @@ pred_column_vars = parameters['variables']['pred']['column']
 
 cst_surface_vars = parameters['variables']['forced']['cst']
 forced_surface_vars = parameters['variables']['forced']['initialized']
+#%% Parameters
+max_steps = 1
+
 
 #%% Initilized dataloaders:
 DL0 = DataLoader(data_path=data_path_train, 
@@ -54,9 +57,10 @@ DL0 = DataLoader(data_path=data_path_train,
                  device='cpu',
                  randomise=False)
 
-(_, _, forced), _, _ = DL0[0]
+L, _ = DL0[0]
+(_, _, _forced) = L[0]
 lats, lons = DL0.get_lat_lon()
-FG = Forcing_Generator(batch_size=batch_size, lats=lats, lons=lons, cst_mask=forced, device=device)
+FG = Forcing_Generator(batch_size=batch_size, lats=lats, lons=lons, cst_mask=_forced, device=device)
 del(DL0)
 
 DL_train = DataLoader(data_path=data_path_train, 
@@ -64,7 +68,7 @@ DL_train = DataLoader(data_path=data_path_train,
                 column_vars=pred_column_vars, 
                 surface_vars=pred_surface_vars, 
                 forced_vars=forced_surface_vars, 
-                steps=1, 
+                steps=max_steps, 
                 device=device,
                 randomise=True)
 DL_test = DataLoader(data_path=data_path_test, 
@@ -75,7 +79,10 @@ DL_test = DataLoader(data_path=data_path_test,
                 steps=1, 
                 device=device,
                 randomise=False)
-(col_t1, sur_t1, forced_t1), _, t = DL_train[0]
+
+L, t_list = DL_train[0]
+(col_t1, sur_t1, _forced) = L[0]
+forced_t1 = FG.generate(t_list[0], _forced)
 
 
 # %% Architecture :
@@ -113,7 +120,7 @@ forecaster = Forecaster(dcore, physic_nn, input_normalizer, output_normalizer, d
 from src.training import lbd_scheduler, WeightMSE
 
 ## Optimizer
-optimizer = torch.optim.AdamW(forecaster.parameters(), lr=1, betas=(0.9,0.95), weight_decay=0.1)
+optimizer = torch.optim.AdamW(forecaster.parameters(), lr=1, betas=(0.9, 0.95), weight_decay=0.1)
 ## Scheduler
 scheduler_f = lbd_scheduler(**parameters['training']['schedule'])
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, scheduler_f, last_epoch=-1, verbose=False)
@@ -148,41 +155,51 @@ if True:
     n_epochs=50
     step_per_epoch=len(DL_train)
 
+time_coef = [1, 1, 0.2] # Coefficient of the loss based on the step [0 is not used]
 for epoch in range(n_epochs):
+    print(f'Epoch {epoch}')
     loss_train.append(0)
     loss_cst.append(0)
     loss_test.append(0)
-    for d in tqdm.tqdm(range(step_per_epoch)):
+    for d in range(step_per_epoch):
         optimizer.zero_grad()
-        (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL_train[d]
-        forced = FG.generate(t, forced_t1)
-        ### Reset optim
-        ### Forward
-        col_pred, surf_pred = forecaster.forward(col_t1, surf_t1, forced)
-        l_col, l_sur = Loss(col_pred, col_t2, surf_pred, surf_t2)
-        loss = l_col + l_sur
+        data_list, t_list  = DL_train[d, max_steps]
+#        ((col_t1, surf_t1, _forced), (col_t2, surf_t2, _)), t_list  = DL_train[d, max_steps]
+        col_pred, sur_pred, _forced = data_list[0]
+        col_t0, sur_t0, _ = data_list[0]
+        loss = 0
+        loss0 = 0
+        for i in range(1, len(data_list)):
+            # predictive model:
+            force_in = FG.generate(t_list[i], _forced)
+            col_truth, sur_truth, _ = data_list[i]
+            col_pred, sur_pred = forecaster.forward(col_pred, sur_pred, force_in)
+            l_col, l_sur = Loss(col_pred, col_truth, sur_pred, sur_truth)
+            loss += (l_col + l_sur) * time_coef[i]
+            print(loss)
+            # cst model
+            l_col0, l_sur0 = Loss(col_t0, col_truth, sur_t0, sur_truth)
+            loss0 += (l_col0 + l_sur0) * time_coef[i]
+
+        ### Reset optim, update:
         loss.backward()
+        loss_items.append(loss.item())
         torch.nn.utils.clip_grad_norm_(forecaster.parameters(), max_norm=32)
         optimizer.step()
         scheduler.step()
+
         #Update losses:
         lr_evo.append(scheduler.get_last_lr()[-1])
-        assert(lr_evo[-1]>0)
-        loss_items.append(loss.item())
-        loss_train[-1] += loss.item() / step_per_epoch
-        
-        ### Cst Loss (baseline)
-        l_col0, l_sur0 = Loss(col_t1, col_t2, surf_t1, surf_t2)
-        loss0 = l_col0 + l_sur0
         loss_cst[-1] += loss0.item() / step_per_epoch
+        loss_train[-1] += loss.item() / step_per_epoch
 
     # On epoch end:
     ## Eval model on test:
     with torch.no_grad():
         for d in tqdm.tqdm(range(len(DL_test))):
-            (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL_test[d]
-            forced = FG.generate(t, forced_t1)
-            col_pred, surf_pred = forecaster.forward(col_t1, surf_t1, forced)
+            ((col_t1, surf_t1, _forced), (col_t2, surf_t2, _)), t_list  = DL_test[d, 1]
+            forced_t1 = FG.generate(t_list[0], _forced)
+            col_pred, surf_pred = forecaster.forward(col_t1, surf_t1, forced_t1)
             l_col, l_sur = Loss(col_pred, col_t2, surf_pred, surf_t2)
             loss = l_col + l_sur
             loss_test[-1] += loss.item() / len(DL_test)
@@ -192,7 +209,7 @@ for epoch in range(n_epochs):
     DL_train.on_epoch_end()
     DL_test.on_epoch_end()
     # Callbacks early stoppings:
-    if epoch>2: # Stop if increase in error
+    if epoch>=2: # Stop if increase in error
         if loss_test[-1] > 10*loss_test[-2]:
             print('Warning Exploding gradient')
             del(loss_test[-1])
@@ -217,7 +234,7 @@ plt.show(); plt.close('all')
 
 # %% Tests on gradients:
 with torch.no_grad():
-    forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
+    forecaster_for_grad = lambda x, y: forecaster(x, y, forced_t1[[0]])
     pert = col_t1[[0]] * 0
     pert[0, 10, 10, :, :] = 1
     _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
@@ -244,7 +261,7 @@ plt.colorbar(); plt.title(f"Input_pert, {DL_train.surface_vars[0]}")
 plt.savefig(f'{graph_path}adj_col_output.jpg')
 plt.show();plt.close('all')
 
-plt.imshow(forced[0,:,:,3].to('cpu').numpy());
+plt.imshow(forced_t1[0,:,:,3].to('cpu').numpy());
 plt.colorbar(); plt.title(f"Sunlight")
 plt.savefig(f'{graph_path}solar.jpg')
 plt.show();plt.close('all')
@@ -256,7 +273,7 @@ plt.show();plt.close('all')
 
 # Quick ADJ test:
 with torch.no_grad():
-    forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
+    forecaster_for_grad = lambda x, y: forecaster(x, y, forced_t1[[0]])
     pert =  torch.randn_like(col_t1[[0]])
     _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     _, (d_col_in, d_surf_in) = torch.autograd.functional.vjp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )

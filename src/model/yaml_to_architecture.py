@@ -26,12 +26,4 @@ def fill_missing_values(parameters):
     parameters['architecture']['decoder']['column_vars'] = len(parameters['variables']['pred']['column'])
     parameters['architecture']['decoder']['n_levels']  = parameters['variables']['n_levels']
 
-    # kernel dimension 1or3 handling
-    if parameters['architecture']['column_embedding']['kernel_dim'] == 3:
-        parameters['architecture']['column_embedding']['kernel_size'] = parameters['architecture']['column_embedding']['kernel_size_3d'] 
-    elif parameters['architecture']['column_embedding']['kernel_dim'] == 1:
-        parameters['architecture']['column_embedding']['kernel_size'] = parameters['architecture']['column_embedding']['kernel_size_1d'] 
-    else:
-        print('Kernel Dim not implemented')
-        assert(False)       
     return parameters

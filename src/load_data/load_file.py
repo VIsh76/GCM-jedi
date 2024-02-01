@@ -4,6 +4,7 @@ import random
 import torch
 import xarray as xr
 import warnings
+import datetime
 
 class DataLoader():
     def __init__(self,
@@ -15,26 +16,30 @@ class DataLoader():
                  steps, 
                  randomise=False,
                  device='cpu',
-                 dt=''
+                 time_format='%Y-%m-%dT%H:%M:%S',
+                 dt=datetime.timedelta(minutes=7, seconds=30),
+                 # format in the file itself
                  ):
         assert(steps > 0)
         self.list_of_files = os.listdir(data_path)
         self.list_of_files = [l for l in self.list_of_files if l.split('.')[-1]=='nc4' ]
         self.list_of_files.sort()
+        self.time_format  = time_format
         self.data_path = data_path
         self.randomise = randomise
         self.surface_vars = surface_vars
         self.column_vars = column_vars
         self.forced_vars = forced_vars
-        self.steps = steps
+        self.max_steps = steps
         self.batch_size = batch_size
         self.device = device
         self.ids = np.array([i for i in range(len(self.list_of_files) - steps) ])
         self.initialize_dims()
         self.on_epoch_end()
+        self.dt = dt
 
     def __len__(self):
-        return (len(self.list_of_files) - self.steps) // self.batch_size
+        return (len(self.list_of_files) - self.max_steps) // self.batch_size
 
     def on_epoch_end(self):
         if self.randomise:
@@ -46,24 +51,27 @@ class DataLoader():
         ds = xr.load_dataset(path) # {'lon': 180, 'lat': 91, 'lev': 72, 'time': 1}
         return ds
         
-    def __getitem__(self, element):
-        file_x_ids = self.ids[element*self.batch_size:(element+1)*self.batch_size]
-        file_y_ids = file_x_ids + self.steps
-        # TD concat in term of array or concat in numpy?
-        # TD Load files in parallel
-        t = []
-        X = []
-        Y = []
-        for file_id in file_x_ids:
-            X.append(self.load_file(file_id))
-        for file_id in file_y_ids:
-            Y.append(self.load_file(file_id))
-        X = xr.concat(X, dim='time')
-        Y = xr.concat(Y, dim='time')
-        t = [  str(T).split('.')[0] for T in (X['time'].values)]
-        X = self.format(X)
-        Y = self.format(Y)
-        return X, Y, t
+    def __getitem__(self, pos):
+        if type(pos) ==tuple:
+            element, steps = pos
+            steps = min(self.max_steps, steps) # Step should be smaller than self.max_step
+        else:
+            steps = 0
+            element= pos
+        
+        main_output = [] # len is steps    
+        ts = [] # len is steps, list of list of length batch_size        
+        for s in range(steps + 1):
+            file_ids = self.ids[element*self.batch_size:(element+1)*self.batch_size] + s
+            X = []
+            for file_id in file_ids:
+                X.append(self.load_file(file_id))
+            X = xr.concat(X, dim='time')
+            t = [  datetime.datetime.strptime(   str(T).split('.')[0], self.time_format   )  for T in (X['time'].values)]            
+            X = self.format(X)
+            main_output.append(X)
+            ts.append(t)
+        return main_output, ts
 
     def format(self, X:xr.DataArray):
         surface = []
@@ -79,9 +87,9 @@ class DataLoader():
             forced = self.format_forced(X)
             forced = torch.from_numpy(forced).to(self.device)
         # Output shapes are:
-        # bs, horizontal_points, nb_var | 
-        # bs, horizontal_points, lev, nb_var
-        # bs, horizontal_points, nb_var |
+        # bs, lat, lon, nb_var | 
+        # bs, lat, lon, lev, nb_var |
+        # bs, lat, lon, nb_var |
         return (column, surface, forced)
 
     def format_column(self, X):
