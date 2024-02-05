@@ -8,15 +8,17 @@ import tqdm
 import torch
 import os
 import shutil
+import datetime
 
 # %% Initialisation
 torch.manual_seed(0)
-parameter_path = 'yaml/full.yaml'
+parameter_path = 'yaml/full_redux.yaml'
 
 if torch.cuda.is_available():
     torch.set_default_device('cuda')
     device = 'cuda'
 else:
+    torch.set_default_device('cpu')
     device = 'cpu'
 
 with open(parameter_path, 'r') as file:
@@ -105,8 +107,10 @@ else:
 
 dcore = Dycore()
 from src.analysis.architecture_analysis import number_of_parameters
+print(datetime.datetime.now())
+print(f'Output folder: {experiment_path}')
 print("Phy number of parameters", number_of_parameters(physic_nn))
-
+print("Num datas", len(DL_train))
 forecaster = Forecaster(dcore, physic_nn, input_normalizer, output_normalizer, dt=1)
 
 # %% Initialisation of procedure
@@ -148,7 +152,8 @@ if True:#Test
 if True:
     n_epochs=50
     step_per_epoch=len(DL_train)
-
+    DL_train.randomise=False # not shuffle at epoche end
+ 
 for epoch in range(n_epochs):
     loss_train.append(0)
     loss_cst.append(0)
@@ -163,7 +168,7 @@ for epoch in range(n_epochs):
         l_col, l_sur = Loss(col_pred, col_t2, surf_pred, surf_t2)
         loss = l_col + l_sur
         loss.backward()
-        print(t, '\t', loss)
+        print(t[0], '\t', loss)
         torch.nn.utils.clip_grad_norm_(forecaster.parameters(), max_norm=32)
         optimizer.step()
         scheduler.step()
@@ -194,7 +199,9 @@ for epoch in range(n_epochs):
     DL_train.on_epoch_end()
     DL_test.on_epoch_end()
     # Callbacks early stoppings:
-    if epoch>2: # Stop if increase in error
+    if epoch<2:
+        torch.save(forecaster.state_dict(), f"{checkpoint_path}epoch_{epoch}")        
+    if epoch>1: # Stop if increase in error
         if loss_test[-1] > 10*loss_test[-2]:
             print('Warning Exploding gradient')
             del(loss_test[-1])
@@ -222,7 +229,7 @@ plt.show(); plt.close('all')
 with torch.no_grad():
     forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
     pert = col_t1[[0]] * 0
-    pert[0, 10, 10, :, :] = 1
+    pert[0, 50, 50, :, :] = 1
     _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     _, (d_col_in, d_surf_in) = torch.autograd.functional.vjp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     print('ADJ test :', torch.sum(d_col_ou * pert) -    torch.sum(d_col_in * pert), torch.sum(d_col_in * pert),  torch.sum(d_col_ou * pert))
@@ -232,29 +239,29 @@ with torch.no_grad():
 import os
 
 plt.imshow(pert[0,:,:,0,0].to('cpu').numpy()); plt.title('Perturbation')
-plt.savefig(f'{graph_path}perturbation.jpg')
+plt.savefig(f'{graph_path}PT2_perturbation.jpg')
 plt.show();plt.close('all')
 
 ###############################
-plt.imshow(d_surf_ou[0,:,:,0].to('cpu').numpy());
-plt.colorbar(); plt.title(f"Output_pert, {DL_train.surface_vars[0]}")
-plt.savefig(f'{graph_path}tlm_col_output.jpg')
+plt.imshow(d_col_ou[0,:,:,-1,4].to('cpu').numpy());
+plt.colorbar(); plt.title(f"Output_pert, {DL_train.column_vars[4]}")
+plt.savefig(f'{graph_path}PT2_tlm_col_output.jpg')
 plt.show();plt.close('all')
 
 ###############################
-plt.imshow(d_surf_in[0,:,:,0].to('cpu').numpy());
-plt.colorbar(); plt.title(f"Input_pert, {DL_train.surface_vars[0]}")
-plt.savefig(f'{graph_path}adj_col_output.jpg')
+plt.imshow(d_col_in[0,:,:,-1,4].to('cpu').numpy());
+plt.colorbar(); plt.title(f"Input_pert, {DL_train.column_vars[4]}")
+plt.savefig(f'{graph_path}PT2_adj_col_input.jpg')
 plt.show();plt.close('all')
 
 plt.imshow(forced[0,:,:,3].to('cpu').numpy());
 plt.colorbar(); plt.title(f"Sunlight")
-plt.savefig(f'{graph_path}solar.jpg')
+plt.savefig(f'{graph_path}PT_solar.jpg')
 plt.show();plt.close('all')
 
 plt.imshow(surf_pred[0,:,:,-1].to('cpu').detach().numpy())
 plt.colorbar(); plt.title(f"Input predicted {DL_train.surface_vars[0]}")
-plt.savefig(f'{graph_path}surf_prediction.jpg')
+plt.savefig(f'{graph_path}PT_surf_prediction.jpg')
 plt.show();plt.close('all')
 
 # Quick ADJ test:
