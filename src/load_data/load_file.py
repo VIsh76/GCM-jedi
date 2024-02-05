@@ -4,6 +4,7 @@ import random
 import torch
 import xarray as xr
 import warnings
+import datetime
 
 class DataLoader():
     def __init__(self,
@@ -15,12 +16,14 @@ class DataLoader():
                  steps, 
                  randomise=False,
                  device='cpu',
+                time_format='%Y-%m-%dT%H:%M:%S',
                  dt=''
                  ):
         assert(steps > 0)
         self.list_of_files = os.listdir(data_path)
         self.list_of_files = [l for l in self.list_of_files if l.split('.')[-1]=='nc4' ]
         self.list_of_files.sort()
+        self.time_format = time_format
         self.data_path = data_path
         self.randomise = randomise
         self.surface_vars = surface_vars
@@ -60,7 +63,8 @@ class DataLoader():
             Y.append(self.load_file(file_id))
         X = xr.concat(X, dim='time')
         Y = xr.concat(Y, dim='time')
-        t = [  str(T).split('.')[0] for T in (X['time'].values)]
+#        t = [ str(T).split('.')[0] for T in (X['time'].values)]
+        t = [ datetime.datetime.strptime(   str(T).split('.')[0], self.time_format   )  for T in (X['time'].values)]
         X = self.format(X)
         Y = self.format(Y)
         return X, Y, t
