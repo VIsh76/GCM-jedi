@@ -26,5 +26,4 @@ def fill_missing_values(parameters):
     parameters['architecture']['decoder']['column_vars'] = len(parameters['variables']['pred']['column'])
     parameters['architecture']['decoder']['n_levels']  = parameters['variables']['n_levels']
 
-    # kernel dimension 1or3 handling
     return parameters

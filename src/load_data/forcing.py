@@ -94,7 +94,6 @@ class Forcing_Generator():
 
     def get_toaa(self, data_dates:datetime.datetime):
         # Setting the date for tooa function
-        data_dates = [datetime.datetime.strptime(d, '%Y-%m-%dT%H:%M:%S') for d in data_dates]
         data_dates = [datetime.datetime(year=data_date.year,
                                       month=data_date.month,
                                       day=data_date.day,
