@@ -1,0 +1,76 @@
+# More hidden dims than the article since we have more variables
+# WORKING VERSION IN TRAINING!!!
+architecture: 
+  model: Physics # One class from the physic class
+  column_embedding: #input from column var
+    n_blocks: 5
+    kernel_size: # used if kernel_dim==3
+      - 2
+      - 2
+      - 10
+    hidden_size: 128
+    output_size: 64
+    kernel_dim: 3 # Uses 3d kernel (surface+col) or 1d kernel (column)
+  surface_embedding: #input from surface var
+    n_blocks: 3
+    hidden_size: 16
+    output_size: 12
+  encoder: # input from embedding output
+    n_blocks: 1
+    hidden_size: 720
+    output_size: 720
+  process: # input from encoder output
+    n_blocks: 5
+    hidden_size: 720
+    output_size: 720
+  decoder: # input is from process/ output is from surface var 
+    n_blocks: 1
+    hidden_size: 720
+
+variables:
+  n_levels: 72
+  pred:
+    column: 
+      - delp 
+      - qitot
+      - qltot
+      - sphu
+      - t
+      - u
+      - v
+    surface: 
+      - phis # is in fact not predicted but is now for test
+  forced:
+    cst:
+      - frlake
+      - frland
+      - frocean
+    generated:
+      - coslat
+      - sinlat
+      - sinlon
+    computed:
+      - toaa
+    initialized:
+      - frlandice
+      - frseaice
+
+# Local NASA:
+#data_path: '/Users/vmarchai/Documents/ML_DATA/GCM_latlon/200004/'
+# AWS:
+path:
+  training: '/home/ubuntu/GCM-jedi/data/200004/train/'
+  testing: '/home/ubuntu/GCM-jedi/data/200004/test/'
+  normalizers: '/home/ubuntu/GCM-jedi/data/norms/'
+  experiments: '/home/ubuntu/GCM-jedi/experiments/20240502_full_REDUX/'
+  graph: '/home/ubuntu/GCM-jedi/data/graph/'
+# WARNING PATH MUST FINISH with '/'
+
+batch_size: 1
+training:
+  epochs: 10
+  schedule:
+    initial_lr: 0.00001
+    max_lr: 0.001
+    epoch_init: 20
+    epoch_decay: 6000

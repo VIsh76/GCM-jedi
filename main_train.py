@@ -12,7 +12,7 @@ import datetime
 
 # %% Initialisation
 torch.manual_seed(0)
-parameter_path = 'yaml/full_redux.yaml'
+parameter_path = 'yaml/full_v2.yaml'
 
 if torch.cuda.is_available():
     torch.set_default_device('cuda')
@@ -108,9 +108,10 @@ else:
 dcore = Dycore()
 from src.analysis.architecture_analysis import number_of_parameters
 print(datetime.datetime.now())
-print(f'Output folder: {experiment_path}')
-print("Phy number of parameters", number_of_parameters(physic_nn))
-print("Num datas", len(DL_train))
+print(f"Parameter : \t {parameter_path}")
+print(f'Output folder : \t {experiment_path}')
+print(f"Phy number of parameters : \t {number_of_parameters(physic_nn)}")
+print(f"Num datas : \t {len(DL_train)}")
 forecaster = Forecaster(dcore, physic_nn, input_normalizer, output_normalizer, dt=1)
 
 # %% Initialisation of procedure
@@ -140,19 +141,22 @@ Loss = WeightMSE(surface_weigth=surface_weigth,
 
 # %% Training
 loss_items = [] # Loss for all tested items
-loss_train = [] # Loss average through an epoch 
+loss_train = [] # Loss average through an epoch
 loss_test = [] # Loss on tests
 loss_cst = [] # Prediction = 0
 lr_evo = [] # Check learning rate
 
+if 'state_dict' in parameters:
+    forecaster.load_state_dict(torch.load(f"{checkpoint_path}{parameters['state_dict']}"))
+
 if True:#Test
     n_epochs=5
     step_per_epoch=1
-    DL_train.randomise=False # not shuffle at epoche end
+    DL_train.randomise=True # not shuffle at epoche end
 if True:
     n_epochs=50
     step_per_epoch=len(DL_train)
-    DL_train.randomise=False # not shuffle at epoche end
+    DL_train.randomise=True # not shuffle at epoche end
  
 for epoch in range(n_epochs):
     loss_train.append(0)

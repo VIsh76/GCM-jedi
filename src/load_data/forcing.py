@@ -12,6 +12,7 @@ class Forcing_Generator():
                  cst_mask:np.array=None, 
                  forced_masks:np.array=None,
                  device='cpu',
+                 normalize=True # if true no normalizer are computed
                  ) -> None:
         self._lats = lats
         self._lons = lons
@@ -19,6 +20,7 @@ class Forcing_Generator():
         self._cst_mask = cst_mask # Earth mask
         self.forced_masks = forced_masks # Sea Temperature, seaice etc
         self.batch_size = batch_size
+        self._has_normalizers= not normalize
         self._generate_cst()
 
     @property
@@ -56,8 +58,17 @@ class Forcing_Generator():
         else:
             # self._cst_mask is a 
             self.cst_mask = self._cst_mask.to(self.device)
+        self.std = np.ones(lat_sin.shape)
+        self.means = np.ones(lat_sin.shape)
  
     def generate(self, ts, forced_mask=None):
+        out = self._generate(ts, forced_mask)
+        if not self._has_normalizers:
+            self._compute_normalisers(out)
+        out = (out - self.mean) / self.std
+        return out    
+  
+    def _generate(self, ts, forced_mask=None):
         nl = [self.lat_lon, self.get_toaa(ts)]
         N = np.concatenate(nl, axis=-1)
         X = torch.from_numpy(N).to(self.device)
@@ -81,7 +92,7 @@ class Forcing_Generator():
     def get_latlon(self):
         return
 
-    def get_toaa(self, data_dates):
+    def get_toaa(self, data_dates:datetime.datetime):
         # Setting the date for tooa function
         data_dates = [datetime.datetime(year=data_date.year,
                                       month=data_date.month,
@@ -101,3 +112,9 @@ class Forcing_Generator():
     @property
     def dimension(self):
         return (self.batch_size, self.__len__(), self.lats)
+
+    def _compute_normalisers(self, F):
+        apply_shapes = tuple(np.arange(len(F.shape)-1))
+        self.std = torch.std(F, axis=apply_shapes , keepdims=True).to(self.device)
+        self.mean = torch.mean(F, axis=apply_shapes, keepdims=True).to(self.device)
+        self._has_normalizers = True
