@@ -1,4 +1,5 @@
 from torch import nn
+from torch.nn.functional import pad
 
 class MLPBlock(nn.Module):    
     def __init__(self, in_channels, out_channels, activation:bool) -> None:
@@ -28,11 +29,21 @@ class ConvBlock(nn.Module):
     """
     def __init__(self, in_channels, out_channels, kernel_size:int, activation:bool) -> None:
         super().__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, padding='same')
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, padding='valid')
         self.activation = activation
         self.act = nn.SELU()
- 
+        self.kernel_size = kernel_size
+
     def forward(self, x):
+        # Pad circular the lattitude
+        x = pad(x, pad = (0, 0, 
+                           (self.kernel_size[1]-1)//2, (self.kernel_size[1]-1)//2, 
+                           0, 0), mode='circular')
+        # Pad reflective the rest
+        x = pad(x, pad = ((self.kernel_size[2]-1)//2, 
+                            (self.kernel_size[2]-1)//2, 0, 0, 
+                            (self.kernel_size[0]-1)//2, 
+                            (self.kernel_size[0]-1)//2), mode='reflect')
         x = self.conv(x)
         if self.activation:
             return self.act(x)

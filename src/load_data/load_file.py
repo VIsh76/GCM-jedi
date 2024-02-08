@@ -16,7 +16,7 @@ class DataLoader():
                  steps, 
                  randomise=False,
                  device='cpu',
-                time_format='%Y-%m-%dT%H:%M:%S',
+                 time_format='%Y-%m-%dT%H:%M:%S',
                  dt=''
                  ):
         assert(steps > 0)
@@ -122,7 +122,6 @@ class DataLoader():
     def get_lats(self):
         ds = self.load_file(0)
         return ds['lat'].values
-        
  
     def initialize_dims(self):
         ds = self.load_file(0)

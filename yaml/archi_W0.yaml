@@ -1,5 +1,4 @@
-# More hidden dims than the article since we have more variables
-# WORKING VERSION IN TRAINING!!!
+# This architecture was able to learn before circular padding
 architecture: 
   model: Physics # One class from the physic class
   column_embedding: #input from column var

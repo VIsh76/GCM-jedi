@@ -30,9 +30,11 @@ class Column_Embedding(nn.Module):
     def __init__(self, n_blocks, input_size, hidden_size, output_size, kernel_size, **kwarg):
         super(Column_Embedding, self).__init__()
         # For easier padding kernels should be odd numbers:
-        #assert(kernel_size[0]%2==1 and kernel_size[1]%2==1 and kernel_size[2]%2==1)
+        if kernel_size[0]%2==1 and kernel_size[1]%2==1 and kernel_size[2]%2==1:
+            pass
+        else:
+            assert(False)
         self.kernel_size = kernel_size
-        self.paddings = 'same' #( (kernel_size[0]-1)//2, 0, (kernel_size[2]-1)//2) # lat, lon, lev; lon is circular
         self.blocks = []
         self.blocks.append( ConvBlock(input_size, hidden_size, kernel_size, activation=True) )
         for _ in range(n_blocks-2):
@@ -46,14 +48,8 @@ class Column_Embedding(nn.Module):
         # Pytorch uses convolution differently where the variable dimension is not at the end but at the start!
         # Switch (bs, *profile_points, lev, vars) to  (bs, vars, *profile_points, lev)
         x = torch.moveaxis(x, -1, 1)
-        k_lon_s = self.kernel_size[1] - 1
         # Perform the kernels
         for i in range(len(self.blocks)):
-            # Upsampling blocks: The earth is not a square
-            #lon_west = x[:, :, :, :k_lon_s//2] 
-            #lon_east = x[:, :, :, -k_lon_s//2:]
-            # Args:
-            #x = torch.concatenate([lon_east, x, lon_west], axis=3)
             # Apply bloc (dimension [2, 3, 4] of input and output will be the same)
             x = self.blocks[i](x)
         # Put the variable dimension at the end

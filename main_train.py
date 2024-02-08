@@ -7,33 +7,56 @@ import yaml
 import tqdm
 import torch
 import os
+import sys
 import shutil
 import datetime
-
+import random
+import argparse
+    
 # %% Initialisation
 torch.manual_seed(0)
-parameter_path = 'yaml/full_v2.yaml'
+np.random.seed(0)
+random.seed(0)
 
-if torch.cuda.is_available():
+# %%  Manual parameters
+default_parameter_path = 'yaml/template.yaml'
+gpu = True
+debug = False
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', '--filename', default=default_parameter_path)
+args = parser.parse_args()
+
+if gpu and torch.cuda.is_available():
     torch.set_default_device('cuda')
     device = 'cuda'
 else:
     torch.set_default_device('cpu')
     device = 'cpu'
 
-with open(parameter_path, 'r') as file:
+with open(args.filename, 'r') as file:
     parameters = yaml.safe_load(file)
+if not ('experiments_name' in parameters['path']):
+    parameters['path']['experiments_name'] = ''
 
+# %% Files:
 experiment_path = f"{parameters['path']['experiments']}"
-graph_path = f"{experiment_path}graph/"
-checkpoint_path = f"{experiment_path}checkpoints/"
-parameter_file = parameter_path.split('/')[-1]
+if debug:
+    now='debug'
+else:
+    now = datetime.datetime.strftime(datetime.datetime.now(),  '%Y%m%d_%H%M')
+experiment_path = os.path.join(experiment_path, now, ) + '_' + parameters['path']['experiments_name'] +'/'
+graph_path = os.path.join(experiment_path, 'graph')+'/'
+checkpoint_path = os.path.join(experiment_path, 'checkpoints')+'/'
+parameter_file = args.filename.split('/')[-1]
 
 # Create folders and copy file
 os.makedirs(experiment_path, exist_ok=True)
 os.makedirs(graph_path, exist_ok=True)
 os.makedirs(checkpoint_path, exist_ok=True)
-shutil.copyfile(parameter_path, f"{experiment_path}{parameter_file}")
+shutil.copyfile(args.filename, f"{experiment_path}{parameter_file}")
+if not debug:
+    sys.stdout = open( os.path.join(experiment_path, f'log.log'), 'w')
 
 batch_size = parameters['batch_size']
 data_path_train = parameters['path']['training']
@@ -68,7 +91,7 @@ DL_train = DataLoader(data_path=data_path_train,
                 forced_vars=forced_surface_vars, 
                 steps=1, 
                 device=device,
-                randomise=True)
+                randomise=False)
 DL_test = DataLoader(data_path=data_path_test, 
                 batch_size=batch_size, 
                 column_vars=pred_column_vars, 
@@ -108,7 +131,7 @@ else:
 dcore = Dycore()
 from src.analysis.architecture_analysis import number_of_parameters
 print(datetime.datetime.now())
-print(f"Parameter : \t {parameter_path}")
+print(f"Parameter : \t {args.filename}")
 print(f'Output folder : \t {experiment_path}')
 print(f"Phy number of parameters : \t {number_of_parameters(physic_nn)}")
 print(f"Num datas : \t {len(DL_train)}")
@@ -206,6 +229,20 @@ for epoch in range(n_epochs):
     if epoch<2:
         torch.save(forecaster.state_dict(), f"{checkpoint_path}epoch_{epoch}")        
     if epoch>1: # Stop if increase in error
+        # PLOTS:
+        plt.plot(loss_items)
+        plt.savefig(f'{graph_path}losses_all.jpg')
+        plt.show(); plt.close('all')
+
+        plt.plot(loss_train)
+        plt.plot(loss_test)
+        plt.savefig(f'{graph_path}losses_traintest.jpg')
+        plt.show(); plt.close('all')
+
+        plt.plot(np.arange(len(lr_evo)), lr_evo)
+        plt.savefig(f'{graph_path}lr.jpg')
+        plt.show(); plt.close('all')
+        
         if loss_test[-1] > 10*loss_test[-2]:
             print('Warning Exploding gradient')
             del(loss_test[-1])
@@ -216,24 +253,14 @@ for epoch in range(n_epochs):
             torch.save(forecaster.state_dict(), f"{checkpoint_path}epoch_{epoch}")
 
 optimizer.zero_grad()
-plt.plot(loss_items)
-plt.savefig(f'{graph_path}losses_all.jpg')
-plt.show(); plt.close('all')
 
-plt.plot(loss_train)
-plt.plot(loss_test)
-plt.savefig(f'{graph_path}losses_traintest.jpg')
-plt.show(); plt.close('all')
-
-plt.plot(np.arange(len(lr_evo)), lr_evo)
-plt.savefig(f'{graph_path}lr.jpg')
-plt.show(); plt.close('all')
 
 # %% Tests on gradients:
 with torch.no_grad():
     forecaster_for_grad = lambda x, y: forecaster(x, y, forced[[0]])
     pert = col_t1[[0]] * 0
     pert[0, 50, 50, :, :] = 1
+    pert[0, 50, 0, :, :] = 1
     _, (d_col_ou, d_surf_ou) = torch.autograd.functional.jvp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     _, (d_col_in, d_surf_in) = torch.autograd.functional.vjp(forecaster_for_grad, (col_t1[[0]], surf_t1[[0]]), (pert, surf_t1[[0]]*0) )
     print('ADJ test :', torch.sum(d_col_ou * pert) -    torch.sum(d_col_in * pert), torch.sum(d_col_in * pert),  torch.sum(d_col_ou * pert))
@@ -243,24 +270,24 @@ with torch.no_grad():
 import os
 
 plt.imshow(pert[0,:,:,0,0].to('cpu').numpy()); plt.title('Perturbation')
-plt.savefig(f'{graph_path}PT2_perturbation.jpg')
+plt.savefig(f'{graph_path}PT1_perturbation.jpg')
 plt.show();plt.close('all')
 
 ###############################
 plt.imshow(d_col_ou[0,:,:,-1,4].to('cpu').numpy());
 plt.colorbar(); plt.title(f"Output_pert, {DL_train.column_vars[4]}")
-plt.savefig(f'{graph_path}PT2_tlm_col_output.jpg')
+plt.savefig(f'{graph_path}PT1_tlm_col_output.jpg')
 plt.show();plt.close('all')
 
 ###############################
 plt.imshow(d_col_in[0,:,:,-1,4].to('cpu').numpy());
 plt.colorbar(); plt.title(f"Input_pert, {DL_train.column_vars[4]}")
-plt.savefig(f'{graph_path}PT2_adj_col_input.jpg')
+plt.savefig(f'{graph_path}PT1_adj_col_input.jpg')
 plt.show();plt.close('all')
 
 plt.imshow(forced[0,:,:,3].to('cpu').numpy());
 plt.colorbar(); plt.title(f"Sunlight")
-plt.savefig(f'{graph_path}PT_solar.jpg')
+plt.savefig(f'{graph_path}PT1_solar.jpg')
 plt.show();plt.close('all')
 
 plt.imshow(surf_pred[0,:,:,-1].to('cpu').detach().numpy())
