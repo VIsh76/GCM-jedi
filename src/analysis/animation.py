@@ -21,7 +21,7 @@ def update_delta_col(frame, fig, ax, vmax, id_var, lev, DL,  add_colobar=False, 
     (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, forced_t2), t_list = DL[frame]
     t = datetime.datetime.strftime(t_list[0], DL.time_format)
     ax.set_title(t)
-    im = ax.imshow( (col_t1 - col_t2).to('cpu').numpy()[0,:,:,lev, id_var], vmax=vmax, vmin=-vmax, cmap='coolwarm')
+    im = ax.imshow( (col_t2 - col_t1).to('cpu').numpy()[0,:,:,lev, id_var], vmax=vmax, vmin=-vmax, cmap='coolwarm')
     if add_colobar:
         fig.colorbar(im, cax)
     return im

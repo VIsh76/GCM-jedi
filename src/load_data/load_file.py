@@ -6,7 +6,7 @@ import xarray as xr
 import warnings
 import datetime
 
-class DataLoader():
+class _DataLoader(): # Loads one single step
     def __init__(self,
                  data_path,
                  batch_size,
@@ -63,7 +63,6 @@ class DataLoader():
             Y.append(self.load_file(file_id))
         X = xr.concat(X, dim='time')
         Y = xr.concat(Y, dim='time')
-#        t = [ str(T).split('.')[0] for T in (X['time'].values)]
         t = [ datetime.datetime.strptime(   str(T).split('.')[0], self.time_format   )  for T in (X['time'].values)]
         X = self.format(X)
         Y = self.format(Y)
@@ -83,9 +82,9 @@ class DataLoader():
             forced = self.format_forced(X)
             forced = torch.from_numpy(forced).to(self.device)
         # Output shapes are:
-        # bs, horizontal_points, nb_var | 
-        # bs, horizontal_points, lev, nb_var
-        # bs, horizontal_points, nb_var |
+        # (bs, lat, lon, lev, nb_var) |
+        # (bs, lat, lon, nb_var)      |
+        # (bs, lat, lon, nb_var)      |
         return (column, surface, forced)
 
     def format_column(self, X):
@@ -134,3 +133,49 @@ class DataLoader():
         out_sur = (self.batch_size, self.n_lats, self.n_lons, len(self.surface_vars))
         out_frc = (self.batch_size, self.n_lats, self.n_lons, len(self.forced_vars))
         return {'surface':out_sur, 'column':out_col, 'forced':out_frc}
+
+
+class DataLoader(_DataLoader):
+    def __init__(self,
+                 data_path,
+                 batch_size,
+                 surface_vars,
+                 column_vars,
+                 forced_vars,
+                 steps, 
+                 randomise=False,
+                 device='cpu',
+                 time_format='%Y-%m-%dT%H:%M:%S',
+                 dt=''
+                 ):
+        super(DataLoader, self).__init__(data_path=data_path,
+                                              batch_size=batch_size,
+                                              surface_vars=surface_vars,
+                                              column_vars=column_vars,
+                                              forced_vars=forced_vars,
+                                              steps=steps,
+                                              randomise=randomise,
+                                              device=device,
+                                              time_format=time_format,
+                                              dt=dt)
+
+    def __getitem__(self, pos):
+        if type(pos) ==tuple:
+            element, steps = pos
+            steps = min(self.steps, steps) # Step should be smaller than self.step
+        else:
+            return super(DataLoader, self).__getitem__(pos)
+
+        main_output = [] # Will have a len of steps + 1
+        ts = [] # Will have a len of steps + 1, list of list of length batch_size
+        for s in range(steps + 1):# Construct the steps for each batch
+            file_ids = self.ids[element * self.batch_size:(element+1)*self.batch_size] + s
+            X = []
+            for file_id in file_ids: # Construct the batch
+                X.append(self.load_file(file_id))
+            X = xr.concat(X, dim='time')
+            t = [  datetime.datetime.strptime(   str(T).split('.')[0], self.time_format   )  for T in (X['time'].values)]            
+            X = self.format(X)
+            main_output.append(X)
+            ts.append(t)
+        return main_output, ts

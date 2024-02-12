@@ -175,16 +175,14 @@ if 'state_dict' in parameters:
 if True:#Test
     n_epochs=5
     step_per_epoch=1
-    DL_train.randomise=True # not shuffle at epoche end
 if True:
     n_epochs=50
     step_per_epoch=len(DL_train)
-    DL_train.randomise=True # not shuffle at epoche end
  
 for epoch in range(n_epochs):
     loss_train.append(0)
-    loss_cst.append(0)
     loss_test.append(0)
+    loss_cst = 0
     for d in tqdm.tqdm(range(step_per_epoch)):
         optimizer.zero_grad()
         (col_t1, surf_t1, forced_t1), (col_t2, surf_t2, _), t  = DL_train[d]
@@ -195,7 +193,7 @@ for epoch in range(n_epochs):
         l_col, l_sur = Loss(col_pred, col_t2, surf_pred, surf_t2)
         loss = l_col + l_sur
         loss.backward()
-        print(t[0], '\t', loss)
+        print(t[0], '\t', loss.item())
         torch.nn.utils.clip_grad_norm_(forecaster.parameters(), max_norm=32)
         optimizer.step()
         scheduler.step()
@@ -208,7 +206,7 @@ for epoch in range(n_epochs):
         ### Cst Loss (baseline)
         l_col0, l_sur0 = Loss(col_t1, col_t2, surf_t1, surf_t2)
         loss0 = l_col0 + l_sur0
-        loss_cst[-1] += loss0.item() / step_per_epoch
+        loss_cst += loss0.item() / step_per_epoch
 
     # On epoch end:
     ## Eval model on test:
@@ -222,7 +220,7 @@ for epoch in range(n_epochs):
             loss_test[-1] += loss.item() / len(DL_test)
              
     print(f"Epoch {epoch}")
-    print(f"Train error \t {loss_train[-1]} \t Test error {loss_test[-1]}   \t Cst error {loss_cst[-1]}")    
+    print(f"Train error \t {loss_train[-1]} \t Test error {loss_test[-1]}   \t Cst error {loss_cst}")    
     DL_train.on_epoch_end()
     DL_test.on_epoch_end()
     # Callbacks early stoppings:
